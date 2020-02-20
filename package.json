@@ -1,0 +1,46 @@
+{
+  "name": "snub-ws-client",
+  "version": "1.0.0",
+  "description": "Websocket client for snub-ws",
+  "main": "dist/snub-ws-client.js",
+  "scripts": {
+    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.js\"  \"watch 'npm run build' src\" --kill-others",
+    "build": "rollup -c rollup.config.js",
+    "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
+    "__NOTE ELECTRON": "You will need to change main to 'sample-electron/main.js'",
+    "electron": "npm run build && cp -r dist sample-electron/dist && electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cokeeffekt/snub-ws-client.git"
+  },
+  "author": "Patrik Hartwig",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cokeeffekt/snub-ws-client/issues"
+  },
+  "homepage": "https://github.com/cokeeffekt/snub-ws-client#readme",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^7.1.1",
+    "@rollup/plugin-url": "^4.0.2",
+    "concurrently": "^5.1.0",
+    "electron": "^8.0.1",
+    "eslint": "^6.8.0",
+    "eslint-config-standard": "^14.1.0",
+    "eslint-plugin-html": "^6.0.0",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-node": "^11.0.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "rollup": "^1.31.1",
+    "rollup-plugin-file-as-blob": "^1.1.2",
+    "snub": "^2.0.1",
+    "snub-ws": "^2.0.5",
+    "static-server": "^2.2.1",
+    "watch": "^1.0.2"
+  },
+  "dependencies": {
+    "ws": "^7.2.1"
+  }
+}

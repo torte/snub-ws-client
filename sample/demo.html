@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+  </head>
+  <body>
+    <script type="application/javascript">
+// Create a data worker that tracks its start time and does a console.log when it receives a message.
+var w = new SharedWorker('data:application/javascript,d = Date.now(); onconnect = evt => { evt.ports[0].onmessage = _ => console.log(d); evt.ports[0].start() }');
+// Now send it that message.  If you open this page in two tabs, the second console.log should log the same time as the first.
+w.port.start();
+w.port.postMessage({});
+    </script>
+  </body>
+</html>
