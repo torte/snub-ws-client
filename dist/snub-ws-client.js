@@ -8,7 +8,7 @@
     config = Object.assign({
       debug: true,
       threadType: 'shared',
-      worker: '../dist/web-worker.thread.js',
+      worker: 'web-worker.thread.js',
       onmessage: _ => {},
       onconnect: _ => {},
       onstatechange: _ => {},
@@ -18,7 +18,7 @@
       onerror: _ => {}
     }, config);
     if (config.debug)
-      console.log('Init snub-ws-client');
+      console.log(['Init snub-ws-client', config.threadType, config.worker].join(':'));
 
     var replyQue = new Map();
 
@@ -144,8 +144,58 @@
     scWorker.postMessage(['_snub_config', JSON.parse(JSON.stringify(config))]);
 
     return {
+      get socketPath () {
+        return config.socketPath;
+      },
+      set socketPath (nv) {
+        if (config.socketPath === nv) return;
+        config.socketPath = nv;
+        scWorker.postMessage(['_snub_config', JSON.parse(JSON.stringify(config))]);
+      },
       get state () {
         return socketState;
+      },
+      set onmessage (nv) {
+        config.onmessage = nv;
+      },
+      get onmessage () {
+        return config.onmessage;
+      },
+      set onconnect (nv) {
+        config.onconnect = nv;
+      },
+      get onconnect () {
+        return config.onconnect;
+      },
+      set onstatechange (nv) {
+        config.onstatechange = nv;
+      },
+      get onstatechange () {
+        return config.onstatechange;
+      },
+      set onauthenticated (nv) {
+        config.onauthenticated = nv;
+      },
+      get onauthenticated () {
+        return config.onauthenticated;
+      },
+      set onclose (nv) {
+        config.onclose = nv;
+      },
+      get onclose () {
+        return config.onclose;
+      },
+      set ondenyauth (nv) {
+        config.ondenyauth = nv;
+      },
+      get ondenyauth () {
+        return config.ondenyauth;
+      },
+      set onerror (nv) {
+        config.onerror = nv;
+      },
+      get onerror () {
+        return config.onerror;
       },
       connect (authObj) {
         this.postToThread('_snub_connect', authObj);
@@ -159,6 +209,16 @@
       async send (key, value, noReply) {
         var res = await this.postToThread('_snubSend', [key, value, noReply]);
         return res;
+      },
+      async createJob (name, fn) {
+        fn = fn.toString();
+        var res = await this.postToThread('_snubCreateJob', { name, fn });
+        var self = this;
+        if (res === name)
+          return async function () {
+            var ran = await self.postToThread('_snubRunJob', { name, args: Array.from(arguments) });
+            return ran;
+          };
       },
       postToThread (key, value) {
         if (scWorker.isInline || scWorker.isElectron)

@@ -34,7 +34,7 @@ export default function (url, opts) {
       timer = setTimeout(function () {
         (opts.onreconnect || noop)(e);
         $.open();
-      }, (opts.timeout || 1e3) * num);
+      }, (opts.timeout || 1e3) * Math.max(num, 3));
     } else {
       (opts.onmaximum || noop)(e);
     }

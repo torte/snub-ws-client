@@ -24,5 +24,3 @@ thread.setPostMessage(msg => {
     }
   });
 });
-
-// ipcMain.send('_snub_ipc_message', 'ping');

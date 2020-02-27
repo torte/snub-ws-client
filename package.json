@@ -1,14 +1,14 @@
 {
   "name": "snub-ws-client",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.js",
   "scripts": {
-    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.js\"  \"watch 'npm run build' src\" --kill-others",
-    "build": "rollup -c rollup.config.js",
+    "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.js\"  \"watch 'npm run dobuild' src\" --kill-others",
+    "dobuild": "rollup -c rollup.config.js",
     "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
     "__NOTE ELECTRON": "You will need to change main to 'sample-electron/main.js'",
-    "electron": "npm run build && cp -r dist sample-electron/dist && electron .",
+    "electron": "npm run dobuild && cp -r dist sample-electron/dist && electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -23,7 +23,6 @@
   "homepage": "https://github.com/cokeeffekt/snub-ws-client#readme",
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^7.1.1",
-    "@rollup/plugin-url": "^4.0.2",
     "concurrently": "^5.1.0",
     "electron": "^8.0.1",
     "eslint": "^6.8.0",
@@ -33,8 +32,8 @@
     "eslint-plugin-node": "^11.0.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
+    "i": "^0.3.6",
     "rollup": "^1.31.1",
-    "rollup-plugin-file-as-blob": "^1.1.2",
     "snub": "^2.0.1",
     "snub-ws": "^2.0.5",
     "static-server": "^2.2.1",

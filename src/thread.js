@@ -12,6 +12,11 @@ var replyQue = new Map();
 var connectQue = [];
 
 var threadPostMessage = _ => {};
+var listenRawFn = _ => {};
+var listenFn = _ => {};
+
+var jobs = new Map();
+
 export default {
   setPostMessage (fn) {
     threadPostMessage = fn;
@@ -129,6 +134,18 @@ export default {
       }
     });
   },
+  async _snubCreateJob (obj) {
+    var { name, fn } = obj;
+    // eslint-disable-next-line
+    var fn = new Function('return ' + fn)()
+    jobs.set(name, fn);
+    return name;
+  },
+  async _snubRunJob (obj) {
+    var { name, args } = obj;
+    var res = await jobs.get(name)(...args);
+    return res;
+  },
   async message (key, value) {
     key = key.replace(/^_snub_/, '_');
     if (typeof this[key] === 'function') {
@@ -138,8 +155,20 @@ export default {
     console.error('unknown message for ' + key, this[key]);
     return 'unknown message for ' + key;
   },
+  listenRaw (fn) {
+    console.log('set listen raw', fn);
+    listenRawFn = fn;
+  },
+  listen (fn) {
+    listenFn = fn;
+  },
   postMessage (key, value) {
-    threadPostMessage([key, value]);
+    var nextRaw = listenRawFn(key, value);
+    var next;
+    if (key === '_snub_message')
+      next = listenFn(...value);
+    if (nextRaw !== false && next !== false)
+      threadPostMessage([key, value]);
   },
   __genReplyId (prefix) {
     var firstPart = (Math.random() * 46656) | 0;

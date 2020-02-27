@@ -34,7 +34,7 @@ function Ws (url, opts) {
       timer = setTimeout(function () {
         (opts.onreconnect || noop)(e);
         $.open();
-      }, (opts.timeout || 1e3) * num);
+      }, (opts.timeout || 1e3) * Math.max(num, 3));
     } else {
       (opts.onmaximum || noop)(e);
     }
@@ -70,6 +70,11 @@ var replyQue = new Map();
 var connectQue = [];
 
 var threadPostMessage = _ => {};
+var listenRawFn = _ => {};
+var listenFn = _ => {};
+
+var jobs = new Map();
+
 var thread = {
   setPostMessage (fn) {
     threadPostMessage = fn;
@@ -187,6 +192,18 @@ var thread = {
       }
     });
   },
+  async _snubCreateJob (obj) {
+    var { name, fn } = obj;
+    // eslint-disable-next-line
+    var fn = new Function('return ' + fn)();
+    jobs.set(name, fn);
+    return name;
+  },
+  async _snubRunJob (obj) {
+    var { name, args } = obj;
+    var res = await jobs.get(name)(...args);
+    return res;
+  },
   async message (key, value) {
     key = key.replace(/^_snub_/, '_');
     if (typeof this[key] === 'function') {
@@ -196,8 +213,20 @@ var thread = {
     console.error('unknown message for ' + key, this[key]);
     return 'unknown message for ' + key;
   },
+  listenRaw (fn) {
+    console.log('set listen raw', fn);
+    listenRawFn = fn;
+  },
+  listen (fn) {
+    listenFn = fn;
+  },
   postMessage (key, value) {
-    threadPostMessage([key, value]);
+    var nextRaw = listenRawFn(key, value);
+    var next;
+    if (key === '_snub_message')
+      next = listenFn(...value);
+    if (nextRaw !== false && next !== false)
+      threadPostMessage([key, value]);
   },
   __genReplyId (prefix) {
     var firstPart = (Math.random() * 46656) | 0;
@@ -208,15 +237,13 @@ var thread = {
   }
 };
 
-console.log('Init web-worker thread', self);
-
+console.log('Init Snub Worker Thread', self);
 if (self.onconnect === null) {
   // Shared Worker
   var clients = [];
 
   self.addEventListener('connect', function (e) {
     var port = e.ports[0];
-    console.log('connect', port);
     clients.push(port);
     port.addEventListener('message', onMsg);
     port.postMessage('_snubInitSharedWorker');
@@ -228,7 +255,12 @@ if (self.onconnect === null) {
   });
 } else if (self.isInline) {
   // Inline Worker
-  thread.setPostMessage(msg => { self.incPostMessage(msg); });
+  thread.setPostMessage((msg) => {
+    self.events.forEach(e => {
+      if (e.event === 'message')
+        e.fn({ data: msg });
+    });
+  });
   self.postMessage = async msg => {
     var res = await thread.message(...msg);
     return res;
@@ -240,22 +272,16 @@ if (self.onconnect === null) {
       fn
     });
   };
-
-  self.incPostMessage = (msg) => {
-    self.events.forEach(e => {
-      if (e.event === 'message')
-        e.fn({ data: msg });
-    });
-  };
 } else {
   // Web Worker
   self.addEventListener('message', onMsg);
   thread.setPostMessage(postMessage);
 }
 
-// got a message from main thread
-// self.addEventListener('message', onMsg);
+self.listenRaw = thread.listenRaw;
+self.listen = thread.listen;
 
+// handle message from main thread
 async function onMsg (event) {
   try {
     if (event.data) {
@@ -270,3 +296,14 @@ async function onMsg (event) {
     console.error(error);
   }
 }
+
+// example listeners
+// self.listen((key, value) => {
+//   console.log('%LSN%', key, value);
+//   if (key === 'pinger')
+//     return false;
+// });
+
+// self.listenRaw((key, value) => {
+//   console.log('%RAW%', key, value);
+// });
