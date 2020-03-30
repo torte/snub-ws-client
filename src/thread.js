@@ -2,7 +2,7 @@
 import Ws from './web-socket';
 
 var config = {
-  timeout: 5e3,
+  timeout: 500,
   maxAttempts: 10,
 };
 var currentWs;
@@ -93,7 +93,7 @@ export default {
         if (config.debug)
           console.log('SnubSocket closed...');
         if (e.reason === 'AUTH_FAIL')
-          return this.postMessage('_snub_denyauth');
+          this.postMessage('_snub_denyauth');
         return this.postMessage('_snub_closed', {
           reason: e.reason,
           code: e.code
@@ -111,6 +111,7 @@ export default {
     currentWs.open();
   },
   _snubSend (snubSendObj) {
+    console.log(snubSendObj, this.wsState);
     if (this.wsState === 'DISCONNECTED') return;
 
     return new Promise(resolve => {

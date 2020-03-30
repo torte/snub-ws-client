@@ -60,7 +60,7 @@ async function onMsg (event) {
   }
 }
 
-// example listeners
+// example raw listeners
 // self.listen((key, value) => {
 //   console.log('%LSN%', key, value);
 //   if (key === 'pinger')

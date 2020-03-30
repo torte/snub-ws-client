@@ -31,10 +31,12 @@ function Ws (url, opts) {
 
   $.reconnect = function (e) {
     if (num++ < max) {
+      if (num === 1)
+        return $.open();
       timer = setTimeout(function () {
         (opts.onreconnect || noop)(e);
         $.open();
-      }, (opts.timeout || 1e3) * Math.max(num, 3));
+      }, (opts.timeout || 500) * (num - 1));
     } else {
       (opts.onmaximum || noop)(e);
     }
@@ -60,7 +62,7 @@ function Ws (url, opts) {
 }
 
 var config = {
-  timeout: 5e3,
+  timeout: 500,
   maxAttempts: 10,
 };
 var currentWs;
@@ -151,7 +153,7 @@ var thread = {
         if (config.debug)
           console.log('SnubSocket closed...');
         if (e.reason === 'AUTH_FAIL')
-          return this.postMessage('_snub_denyauth');
+          this.postMessage('_snub_denyauth');
         return this.postMessage('_snub_closed', {
           reason: e.reason,
           code: e.code
@@ -169,6 +171,7 @@ var thread = {
     currentWs.open();
   },
   _snubSend (snubSendObj) {
+    console.log(snubSendObj, this.wsState);
     if (this.wsState === 'DISCONNECTED') return;
 
     return new Promise(resolve => {
@@ -297,7 +300,7 @@ async function onMsg (event) {
   }
 }
 
-// example listeners
+// example raw listeners
 // self.listen((key, value) => {
 //   console.log('%LSN%', key, value);
 //   if (key === 'pinger')

@@ -31,10 +31,12 @@ export default function (url, opts) {
 
   $.reconnect = function (e) {
     if (num++ < max) {
+      if (num === 1)
+        return $.open();
       timer = setTimeout(function () {
         (opts.onreconnect || noop)(e);
         $.open();
-      }, (opts.timeout || 1e3) * Math.max(num, 3));
+      }, (opts.timeout || 500) * (num - 1));
     } else {
       (opts.onmaximum || noop)(e);
     }

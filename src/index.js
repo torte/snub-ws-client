@@ -220,15 +220,16 @@ export default function (config) {
 
       // only used by webworkers with a means to reply inline
       return new Promise((resolve, reject) => {
-        if (value.length === 3 && value[2]) {
+        if (!value || (value.length === 3 && value[2] === true)) {
+          scWorker.postMessage([key, value]);
           resolve();
         } else {
           var msgChannel = new MessageChannel();
           msgChannel.port1.onmessage = event => {
             resolve(event.data);
           };
+          scWorker.postMessage([key, value], [msgChannel.port2]);
         }
-        scWorker.postMessage([key, value], [msgChannel.port2]);
       });
     }
   };
