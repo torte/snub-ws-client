@@ -31,12 +31,10 @@ function Ws (url, opts) {
 
   $.reconnect = function (e) {
     if (num++ < max) {
-      if (num === 1)
-        return $.open();
       timer = setTimeout(function () {
         (opts.onreconnect || noop)(e);
         $.open();
-      }, (opts.timeout || 500) * (num - 1));
+      }, num === 1 ? 1 : (opts.timeout || 500) * (num - 1));
     } else {
       (opts.onmaximum || noop)(e);
     }
@@ -53,6 +51,9 @@ function Ws (url, opts) {
   $.close = function (x, y) {
     timer = clearTimeout(timer);
     ws.close(x || 1e3, y);
+    opts.onmessage = noop;
+    opts.onopen = noop;
+    opts.onclose = noop;
   };
 
   if (opts.autoConnect)
@@ -107,6 +108,9 @@ var thread = {
 
     console.log('max attampes', config.maxAttempts);
     this.wsState = 'CONNECTING';
+    try {
+      currentWs.close();
+    } catch (error) {}
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,

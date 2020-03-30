@@ -47,6 +47,9 @@ export default {
 
     console.log('max attampes', config.maxAttempts);
     this.wsState = 'CONNECTING';
+    try {
+      currentWs.close();
+    } catch (error) {}
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,
