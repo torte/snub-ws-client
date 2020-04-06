@@ -20,7 +20,7 @@ export default function (url, opts) {
     };
 
     ws.onclose = function (e) {
-      e.code === 1e3 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
+      e.code === 1000 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
       (opts.onclose || noop)(e);
     };
 
@@ -53,7 +53,7 @@ export default function (url, opts) {
     ws.close(x || 1e3, y);
     opts.onmessage = noop;
     opts.onopen = noop;
-    opts.onclose = noop;
+    // opts.onclose = noop;
   };
 
   if (opts.autoConnect)

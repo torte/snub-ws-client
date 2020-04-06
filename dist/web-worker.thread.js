@@ -20,7 +20,7 @@ function Ws (url, opts) {
     };
 
     ws.onclose = function (e) {
-      e.code === 1e3 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
+      e.code === 1000 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
       (opts.onclose || noop)(e);
     };
 
@@ -53,7 +53,7 @@ function Ws (url, opts) {
     ws.close(x || 1e3, y);
     opts.onmessage = noop;
     opts.onopen = noop;
-    opts.onclose = noop;
+    // opts.onclose = noop;
   };
 
   if (opts.autoConnect)
@@ -166,16 +166,17 @@ var thread = {
       onerror: e => console.log('Error:', e)
     });
   },
-  _close () {
+  _close (payload = []) {
     if (!currentWs) return;
-    currentWs.close();
+    if (config.debug)
+      console.log('Close sent from client', ...payload);
+    currentWs.close(...payload);
   },
   _open () {
     if (!currentWs) return;
     currentWs.open();
   },
   _snubSend (snubSendObj) {
-    console.log(snubSendObj, this.wsState);
     if (this.wsState === 'DISCONNECTED') return;
 
     return new Promise(resolve => {
@@ -221,7 +222,6 @@ var thread = {
     return 'unknown message for ' + key;
   },
   listenRaw (fn) {
-    console.log('set listen raw', fn);
     listenRawFn = fn;
   },
   listen (fn) {

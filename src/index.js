@@ -11,8 +11,6 @@ export default function (config) {
     ondenyauth: _ => {},
     onerror: _ => {}
   }, config);
-  if (config.debug)
-    console.log(['Init snub-ws-client', config.threadType, config.worker].join(':'));
 
   var replyQue = new Map();
 
@@ -22,18 +20,17 @@ export default function (config) {
   if (config.threadType === 'web' && typeof Worker === 'undefined')
     config.threadType = 'inline';
 
+  if (config.debug)
+    console.log(['Init snub-ws-client', config.threadType, config.worker].join(':'));
+
   var scWorker;
   if (config.threadType === 'web') {
     scWorker = new Worker(config.worker);
-    if (config.debug)
-      console.log('Init snub-ws-client: ', config.threadType);
   }
 
   if (config.threadType === 'shared') {
     var scWorkerShared = new SharedWorker(config.worker, 'SnubSharedWorker');
     scWorker = scWorkerShared.port;
-    if (config.debug)
-      console.log('Init snub-ws-client: ', config.threadType);
   }
 
   if (config.threadType === 'inline') {
@@ -42,16 +39,12 @@ export default function (config) {
     request.send(null);
 
     if (request.status === 200) {
-      // console.log(request.responseText);
       scWorker = {
         isInline: true,
         events: []
       };
       doEval(scWorker, request.responseText);
     }
-
-    if (config.debug)
-      console.log('Init snub-ws-client: ', config.threadType);
   }
 
   if (config.threadType === 'electron') {
@@ -194,8 +187,8 @@ export default function (config) {
     connect (authObj) {
       this.postToThread('_snub_connect', authObj);
     },
-    close () {
-      this.postToThread('_snub_close');
+    close (code, reason) {
+      this.postToThread('_snub_close', [code, reason]);
     },
     open () {
       this.postToThread('_snub_open');
