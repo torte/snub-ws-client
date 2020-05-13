@@ -59,6 +59,7 @@ async function onMsg (event) {
     console.error(error);
   }
 }
+thread.initThreadClient();
 
 // example raw listeners
 // self.listen((key, value) => {

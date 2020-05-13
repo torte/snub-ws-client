@@ -20,6 +20,7 @@ export default function (url, opts) {
     };
 
     ws.onclose = function (e) {
+      // https://github.com/Luka967/websocket-close-codes
       e.code === 1000 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
       (opts.onclose || noop)(e);
     };

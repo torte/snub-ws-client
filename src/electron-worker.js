@@ -24,3 +24,4 @@ thread.setPostMessage(msg => {
     }
   });
 });
+thread.initThreadClient();

@@ -18,6 +18,13 @@ var listenFn = _ => {};
 var jobs = new Map();
 
 export default {
+  initThreadClient () {
+    console.log('Thread Client INIT');
+    // new clients will need to know about the existing connection.
+    this.postMessage('_snub_state', this.wsState);
+    if (this.wsState === 'CONNECTED')
+      this.postMessage('_snub_acceptauth');
+  },
   setPostMessage (fn) {
     threadPostMessage = fn;
   },
@@ -94,7 +101,7 @@ export default {
       onclose: e => {
         this.wsState = 'DISCONNECTED';
         if (config.debug)
-          console.log('SnubSocket closed...');
+          console.log('SnubSocket closed...', e.code, e.reason);
         if (e.reason === 'AUTH_FAIL')
           this.postMessage('_snub_denyauth');
         return this.postMessage('_snub_closed', {

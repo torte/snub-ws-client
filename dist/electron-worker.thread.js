@@ -20,6 +20,7 @@ function Ws (url, opts) {
     };
 
     ws.onclose = function (e) {
+      // https://github.com/Luka967/websocket-close-codes
       e.code === 1000 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
       (opts.onclose || noop)(e);
     };
@@ -79,6 +80,13 @@ var listenFn = _ => {};
 var jobs = new Map();
 
 var thread = {
+  initThreadClient () {
+    console.log('Thread Client INIT');
+    // new clients will need to know about the existing connection.
+    this.postMessage('_snub_state', this.wsState);
+    if (this.wsState === 'CONNECTED')
+      this.postMessage('_snub_acceptauth');
+  },
   setPostMessage (fn) {
     threadPostMessage = fn;
   },
@@ -155,7 +163,7 @@ var thread = {
       onclose: e => {
         this.wsState = 'DISCONNECTED';
         if (config.debug)
-          console.log('SnubSocket closed...');
+          console.log('SnubSocket closed...', e.code, e.reason);
         if (e.reason === 'AUTH_FAIL')
           this.postMessage('_snub_denyauth');
         return this.postMessage('_snub_closed', {
@@ -268,3 +276,4 @@ thread.setPostMessage(msg => {
     }
   });
 });
+thread.initThreadClient();
