@@ -3,12 +3,12 @@
 
 <head>
   <title>Sample</title>
-  <script src="/dist/snub-ws-client.js"></script>
+  <script src="../dist/snub-ws-client.js"></script>
   <script>
     // eslint-disable-next-line no-undef
     var snub = snubWsClient({
       socketPath: 'ws://localhost:1338',
-      threadType: 'shared',
+      threadType: 'inline',
       worker: '../dist/web-worker.thread.js',
       onmessage: msg => { console.log('onmessage', msg); },
       onstatechange: state => { console.log('onstatechange', state); },

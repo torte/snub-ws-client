@@ -57,6 +57,7 @@ export default {
     try {
       currentWs.close();
     } catch (error) {}
+    console.log('NEW SOCKET');
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,

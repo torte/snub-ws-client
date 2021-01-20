@@ -53,6 +53,16 @@
       }
     }
 
+    if (config.threadType === 'inline-raw' && typeof config.worker === 'string') {
+      if (request.status === 200) {
+        scWorker = {
+          isInline: true,
+          events: []
+        };
+        doEval(scWorker, config.worker);
+      }
+    }
+
     if (config.threadType === 'electron') {
       if (typeof config.worker !== 'object')
         throw Error('Electron worker requires ipcRenderer passed to the config.worker');
