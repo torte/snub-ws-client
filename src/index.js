@@ -21,7 +21,7 @@ export default function (config) {
     config.threadType = 'inline';
 
   if (config.debug)
-    console.log(['Init snub-ws-client', config.threadType, config.worker].join(':'));
+    console.log(['Init snub-ws-client', config.threadType, String(config.worker).substr(0, 20)].join(':'));
 
   var scWorker;
   if (config.threadType === 'web') {
@@ -53,6 +53,14 @@ export default function (config) {
       events: []
     };
     doEval(scWorker, config.worker);
+  }
+
+  if (config.threadType === 'inline-fn' && typeof config.worker === 'function') {
+    scWorker = {
+      isInline: true,
+      events: []
+    };
+    config.worker(scWorker);
   }
 
   if (config.threadType === 'electron') {

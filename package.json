@@ -5,7 +5,7 @@
   "main": "dist/snub-ws-client.js",
   "scripts": {
     "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.js\"  \"watch 'npm run dobuild' src\" --kill-others",
-    "dobuild": "rollup -c rollup.config.js",
+    "dobuild": "rollup -c rollup.config.js; cp dist/web-worker.thread.js dist/web-worker.fn.js; echo ' }' >> dist/web-worker.fn.js; sed -i.bak '1s;^;export default function(self) { ;' dist/web-worker.fn.js;",
     "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
     "__NOTE ELECTRON": "You will need to change main to 'sample-electron/main.js'",
     "electron": "npm run dobuild && cp -r dist sample-electron/dist && electron .",
