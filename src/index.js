@@ -48,13 +48,11 @@ export default function (config) {
   }
 
   if (config.threadType === 'inline-raw' && typeof config.worker === 'string') {
-    if (request.status === 200) {
-      scWorker = {
-        isInline: true,
-        events: []
-      };
-      doEval(scWorker, config.worker);
-    }
+    scWorker = {
+      isInline: true,
+      events: []
+    };
+    doEval(scWorker, config.worker);
   }
 
   if (config.threadType === 'electron') {
