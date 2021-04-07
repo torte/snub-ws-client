@@ -68,6 +68,7 @@ var config = {
   maxAttempts: 10,
 };
 var currentWs;
+var currentSocketId;
 var currentWsState = 'DISCONNECTED'; // DISCONNECTED > CONNECTING > WAITING_AUTH > CONNECTED
 
 var replyQue = new Map();
@@ -85,7 +86,7 @@ var thread = {
     // new clients will need to know about the existing connection.
     this.postMessage('_snub_state', this.wsState);
     if (this.wsState === 'CONNECTED')
-      this.postMessage('_snub_acceptauth');
+      this.postMessage('_snub_acceptauth', currentSocketId);
   },
   setPostMessage (fn) {
     threadPostMessage = fn;
@@ -108,7 +109,7 @@ var thread = {
     if (currentWs && this.wsState !== 'DISCONNECTED') {
       this.postMessage('_snub_state', this.wsState);
       if (this.wsState === 'CONNECTED')
-        this.postMessage('_snub_acceptauth');
+        this.postMessage('_snub_acceptauth', currentSocketId);
       return;
     }
     if (config.debug)
@@ -135,7 +136,8 @@ var thread = {
           var [key, value] = JSON.parse(e.data);
           if (key === '_acceptAuth') {
             this.wsState = 'CONNECTED';
-            this.postMessage('_snub_acceptauth');
+            currentSocketId = value;
+            this.postMessage('_snub_acceptauth', currentSocketId);
 
             while (connectQue.length > 0) {
               (async queItem => {

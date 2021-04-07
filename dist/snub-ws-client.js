@@ -115,7 +115,7 @@
 
     // eslint-disable-next-line
     var socketState = 'DISCONNECTED';
-
+    var socketId;
     scWorker.addEventListener('message', event => {
       var [key, value] = event.data;
       if (key === '_snub_state') {
@@ -135,7 +135,8 @@
         config.onmessage(value);
 
       if (key === '_snub_acceptauth') {
-        config.onauthenticated();
+        socketId = value;
+        config.onauthenticated(value);
         config.onconnect();
       }
 
@@ -163,6 +164,9 @@
       },
       get state () {
         return socketState;
+      },
+      get socketId () {
+        return socketId;
       },
       set onmessage (nv) {
         config.onmessage = nv;
