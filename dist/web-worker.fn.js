@@ -14,18 +14,28 @@ function Ws (url, opts) {
 
     ws.onmessage = opts.onmessage || noop;
 
+    var intTrack = setInterval(_ => {
+      console.log(ws, ws.readyState);
+    }, 5000);
+
     ws.onopen = function (e) {
+      clearInterval(intTrack);
       (opts.onopen || noop)(e);
       num = 0;
     };
 
     ws.onclose = function (e) {
+      clearInterval(intTrack);
       // https://github.com/Luka967/websocket-close-codes
+      // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
       e.code === 1000 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
+      if (e.code === 1000 && e.reason === 'IDLE_TIMEOUT')
+        $.reconnect(e);
       (opts.onclose || noop)(e);
     };
 
     ws.onerror = function (e) {
+      clearInterval(intTrack);
       (e && e.code === 'ECONNREFUSED') ? $.reconnect(e) : (opts.onerror || noop)(e);
     };
   };
@@ -115,12 +125,14 @@ var thread = {
     if (config.debug)
       console.log('SnubSocket Connecting...');
 
-    console.log('max attampes', config.maxAttempts);
+    if (config.debug)
+      console.log('max attempts.', config.maxAttempts);
     this.wsState = 'CONNECTING';
     try {
       currentWs.close();
     } catch (error) {}
-    console.log('NEW SOCKET');
+    if (config.debug)
+      console.log('NEW SOCKET', authObj);
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,
@@ -174,7 +186,7 @@ var thread = {
           code: e.code
         });
       },
-      onerror: e => console.log('Error:', e)
+      onerror: e => console.warn('Error:', e)
     });
   },
   _close (payload = []) {

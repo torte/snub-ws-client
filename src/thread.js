@@ -53,12 +53,14 @@ export default {
     if (config.debug)
       console.log('SnubSocket Connecting...');
 
-    console.log('max attampes', config.maxAttempts);
+    if (config.debug)
+      console.log('max attempts.', config.maxAttempts);
     this.wsState = 'CONNECTING';
     try {
       currentWs.close();
     } catch (error) {}
-    console.log('NEW SOCKET');
+    if (config.debug)
+      console.log('NEW SOCKET', authObj);
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,
@@ -112,7 +114,7 @@ export default {
           code: e.code
         });
       },
-      onerror: e => console.log('Error:', e)
+      onerror: e => console.warn('Error:', e)
     });
   },
   _close (payload = []) {
