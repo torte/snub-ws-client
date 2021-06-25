@@ -191,6 +191,12 @@ export default {
     var secondPart = (Math.random() * 46656) | 0;
     firstPart = ('000' + firstPart.toString(36)).slice(-3);
     secondPart = ('000' + secondPart.toString(36)).slice(-3);
-    return '_reply:' + prefix + ':' + firstPart + secondPart;
+    return '_reply:' + prefix + ':' + hashCode(currentSocketId) + '-' + firstPart + secondPart;
   }
 };
+
+function hashCode(s) {
+  for (var h = 0, i = 0; i < s.length; h &= h)
+    h = 31 * h + s.charCodeAt(i++);
+  return Math.abs(h).toString(36);
+}
