@@ -1,6 +1,7 @@
 
 import thread from './thread.js';
 console.log('Init Snub Worker Thread', self);
+self.thread = thread;
 if (self.onconnect === null) {
   // Shared Worker
   var clients = [];

@@ -1,4 +1,4 @@
-function noop () {}
+function noop() {}
 
 function Ws (url, opts) {
   opts = opts || {};
@@ -10,11 +10,15 @@ function Ws (url, opts) {
   var max = opts.maxAttempts || Infinity;
 
   $.open = function () {
+    try {
+      ws.close();
+      ws = undefined;
+    } catch (error) {}
     ws = new WebSocket(url, opts.protocols || []);
 
     ws.onmessage = opts.onmessage || noop;
 
-    var intTrack = setInterval(_ => {
+    var intTrack = setInterval((_) => {
       console.log(ws, ws.readyState);
     }, 5000);
 
@@ -28,27 +32,35 @@ function Ws (url, opts) {
       clearInterval(intTrack);
       // https://github.com/Luka967/websocket-close-codes
       // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
-      e.code === 1000 || e.code === 1001 || e.code === 1005 || $.reconnect(e);
-      if (e.code === 1000 && e.reason === 'IDLE_TIMEOUT')
-        $.reconnect(e);
+      e.code === 1000 || e.code === 1001 || $.reconnect(e);
+      if (e.code === 1000 && e.reason === 'IDLE_TIMEOUT') $.reconnect(e);
       (opts.onclose || noop)(e);
     };
 
     ws.onerror = function (e) {
       clearInterval(intTrack);
-      (e && e.code === 'ECONNREFUSED') ? $.reconnect(e) : (opts.onerror || noop)(e);
+      e && e.code === 'ECONNREFUSED'
+        ? $.reconnect(e)
+        : (opts.onerror || noop)(e);
     };
   };
 
   $.reconnect = function (e) {
     if (num++ < max) {
-      timer = setTimeout(function () {
-        (opts.onreconnect || noop)(e);
-        $.open();
-      }, num === 1 ? 1 : (opts.timeout || 500) * (num - 1));
+      timer = setTimeout(
+        function () {
+          (opts.onreconnect || noop)(e);
+          $.open();
+        },
+        num === 1 ? 1 : (opts.timeout || 500) * (num - 1)
+      );
     } else {
       (opts.onmaximum || noop)(e);
     }
+  };
+
+  $.readyState = function () {
+    return ws.readyState;
   };
 
   $.json = function (x) {
@@ -62,13 +74,13 @@ function Ws (url, opts) {
   $.close = function (x, y) {
     timer = clearTimeout(timer);
     ws.close(x || 1e3, y);
-    opts.onmessage = noop;
-    opts.onopen = noop;
-    // opts.onclose = noop;
+    ws.onmessage = noop;
+    ws.onopen = noop;
+    ws.onclose = noop;
+    ws.onerror = noop;
   };
 
-  if (opts.autoConnect)
-    $.open(); // init
+  if (opts.autoConnect) $.open(); // init
 
   return $;
 }
@@ -84,66 +96,63 @@ var currentWsState = 'DISCONNECTED'; // DISCONNECTED > CONNECTING > WAITING_AUTH
 var replyQue = new Map();
 var connectQue = [];
 
-var threadPostMessage = _ => {};
-var listenRawFn = _ => {};
-var listenFn = _ => {};
+var threadPostMessage = (_) => {};
+var listenRawFn = (_) => {};
+var listenFn = (_) => {};
 
 var jobs = new Map();
-
 var thread = {
-  initThreadClient () {
+  currentWs() {
+    return currentWs;
+  },
+  initThreadClient() {
     console.log('Thread Client INIT');
     // new clients will need to know about the existing connection.
     this.postMessage('_snub_state', this.wsState);
     if (this.wsState === 'CONNECTED')
       this.postMessage('_snub_acceptauth', currentSocketId);
   },
-  setPostMessage (fn) {
+  setPostMessage(fn) {
     threadPostMessage = fn;
   },
-  get wsState () {
+  get wsState() {
     return currentWsState;
   },
-  set wsState (nv) {
+  set wsState(nv) {
     if (nv !== currentWs) {
       currentWsState = nv;
       this.postMessage('_snub_state', nv);
     }
   },
-  async _config (configObj) {
+  async _config(configObj) {
     config = Object.assign(config, configObj);
   },
-  async _connect (authObj) {
-    if (config.debug)
-      console.log('SnubSocket request connection...');
+  async _connect(authObj) {
+    if (config.debug) console.log('SnubSocket request connection...');
     if (currentWs && this.wsState !== 'DISCONNECTED') {
       this.postMessage('_snub_state', this.wsState);
       if (this.wsState === 'CONNECTED')
         this.postMessage('_snub_acceptauth', currentSocketId);
       return;
     }
-    if (config.debug)
-      console.log('SnubSocket Connecting...');
+    if (config.debug) console.log('SnubSocket Connecting...');
 
-    if (config.debug)
-      console.log('max attempts.', config.maxAttempts);
+    if (config.debug) console.log('max attempts.', config.maxAttempts);
     this.wsState = 'CONNECTING';
     try {
       currentWs.close();
     } catch (error) {}
-    if (config.debug)
-      console.log('NEW SOCKET', authObj);
+    if (config.debug) console.log('NEW SOCKET', authObj);
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,
       maxAttempts: config.maxAttempts,
-      onopen: e => {
-        if (config.debug)
-          console.log('SnubSocket Connected');
+      onopen: (e) => {
+        if (config.debug) console.log('SnubSocket Connected');
         this.wsState = 'WAITING_AUTH';
         currentWs.json(['_auth', authObj]);
       },
-      onmessage: e => {
+      onmessage: (e) => {
         try {
           var [key, value] = JSON.parse(e.data);
           if (key === '_acceptAuth') {
@@ -152,7 +161,7 @@ var thread = {
             this.postMessage('_snub_acceptauth', currentSocketId);
 
             while (connectQue.length > 0) {
-              (async queItem => {
+              (async (queItem) => {
                 var res = this._snubSend(queItem.obj);
                 queItem.fn(res);
               })(connectQue.shift());
@@ -173,40 +182,45 @@ var thread = {
           this.postMessage('_snub_message', e.data);
         }
       },
-      onreconnect: e => console.log('Reconnecting...', e),
-      onmaximum: e => console.log('Stop Attempting!', e),
-      onclose: e => {
+      onreconnect: (e) => console.log('Reconnecting...', e),
+      onmaximum: (e) => console.log('Stop Attempting!', e),
+      onclose: (e) => {
         this.wsState = 'DISCONNECTED';
-        if (config.debug)
-          console.log('SnubSocket closed...', e.code, e.reason);
-        if (e.reason === 'AUTH_FAIL')
-          this.postMessage('_snub_denyauth');
+        if (config.debug) console.log('SnubSocket closed...', e.code, e.reason);
+        if (e.reason === 'AUTH_FAIL') this.postMessage('_snub_denyauth');
         return this.postMessage('_snub_closed', {
           reason: e.reason,
-          code: e.code
+          code: e.code,
         });
       },
-      onerror: e => console.warn('Error:', e)
+      onerror: (e) => console.warn('Error:', e),
     });
   },
-  _close (payload = []) {
+  _close(payload = []) {
     if (!currentWs) return;
-    if (config.debug)
-      console.log('Close sent from client', ...payload);
+    if (config.debug) console.log('Close sent from client', ...payload);
     currentWs.close(...payload);
   },
-  _open () {
+  _open() {
     if (!currentWs) return;
     currentWs.open();
   },
-  _snubSend (snubSendObj) {
+  _snubSend(snubSendObj) {
+    if (!currentWs) return;
+    console.log('!send', currentWs.readyState(), this.wsState);
+    if (currentWs.readyState() > 1 && this.wsState !== 'DISCONNECTED') {
+      console.log('attemp recon');
+      currentWs.reconnect();
+      this.wsState = 'CONNECTING';
+    }
+
     if (this.wsState === 'DISCONNECTED') return;
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (this.wsState !== 'CONNECTED') {
         connectQue.push({
           obj: snubSendObj,
-          fn: resolve
+          fn: resolve,
         });
       } else {
         var [key, value, noReply] = snubSendObj;
@@ -215,27 +229,26 @@ var thread = {
         if (replyId)
           replyQue.set(replyId, {
             ts: Date.now(),
-            fn: resolve
+            fn: resolve,
           });
         currentWs.json([key, value, replyId]);
-        if (!replyId)
-          resolve();
+        if (!replyId) resolve();
       }
     });
   },
-  async _snubCreateJob (obj) {
+  async _snubCreateJob(obj) {
     var { name, fn } = obj;
     // eslint-disable-next-line
     var fn = new Function('return ' + fn)();
     jobs.set(name, fn);
     return name;
   },
-  async _snubRunJob (obj) {
+  async _snubRunJob(obj) {
     var { name, args } = obj;
     var res = await jobs.get(name)(...args);
     return res;
   },
-  async message (key, value) {
+  async message(key, value) {
     key = key.replace(/^_snub_/, '_');
     if (typeof this[key] === 'function') {
       var res = this[key](value);
@@ -244,32 +257,37 @@ var thread = {
     console.error('unknown message for ' + key, this[key]);
     return 'unknown message for ' + key;
   },
-  listenRaw (fn) {
+  listenRaw(fn) {
     listenRawFn = fn;
   },
-  listen (fn) {
+  listen(fn) {
     listenFn = fn;
   },
-  postMessage (key, value) {
+  postMessage(key, value) {
     var nextRaw = listenRawFn(key, value);
     var next;
-    if (key === '_snub_message')
-      next = listenFn(...value);
-    if (nextRaw !== false && next !== false)
-      threadPostMessage([key, value]);
+    if (key === '_snub_message') next = listenFn(...value);
+    if (nextRaw !== false && next !== false) threadPostMessage([key, value]);
   },
-  __genReplyId (prefix) {
+  __genReplyId(prefix) {
     var firstPart = (Math.random() * 46656) | 0;
     var secondPart = (Math.random() * 46656) | 0;
     firstPart = ('000' + firstPart.toString(36)).slice(-3);
     secondPart = ('000' + secondPart.toString(36)).slice(-3);
-    return '_reply:' + prefix + ':' + hashCode(currentSocketId) + '-' + firstPart + secondPart;
-  }
+    return (
+      '_reply:' +
+      prefix +
+      ':' +
+      hashCode(currentSocketId) +
+      '-' +
+      firstPart +
+      secondPart
+    );
+  },
 };
 
 function hashCode(s) {
-  for (var h = 0, i = 0; i < s.length; h &= h)
-    h = 31 * h + s.charCodeAt(i++);
+  for (var h = 0, i = 0; i < s.length; h &= h) h = 31 * h + s.charCodeAt(i++);
   return Math.abs(h).toString(36);
 }
 
