@@ -207,9 +207,7 @@ var thread = {
   },
   _snubSend(snubSendObj) {
     if (!currentWs) return;
-    console.log('!send', currentWs.readyState(), this.wsState);
     if (currentWs.readyState() > 1 && this.wsState !== 'DISCONNECTED') {
-      console.log('attemp recon');
       currentWs.reconnect();
       this.wsState = 'CONNECTING';
     }
