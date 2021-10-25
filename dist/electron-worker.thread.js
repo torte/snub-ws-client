@@ -11,7 +11,7 @@ function Ws (url, opts) {
 
   $.open = function () {
     try {
-      ws.close();
+      ws.close(1000);
       ws = undefined;
     } catch (error) {}
     ws = new WebSocket(url, opts.protocols || []);
@@ -102,7 +102,7 @@ var listenFn = (_) => {};
 
 var jobs = new Map();
 var thread = {
-  currentWs() {
+  get currentWs() {
     return currentWs;
   },
   initThreadClient() {
@@ -129,6 +129,7 @@ var thread = {
   },
   async _connect(authObj) {
     if (config.debug) console.log('SnubSocket request connection...');
+    if (currentWs && currentWs.readyState() > 1) this.wsState = 'DISCONNECTED';
     if (currentWs && this.wsState !== 'DISCONNECTED') {
       this.postMessage('_snub_state', this.wsState);
       if (this.wsState === 'CONNECTED')
@@ -140,7 +141,7 @@ var thread = {
     if (config.debug) console.log('max attempts.', config.maxAttempts);
     this.wsState = 'CONNECTING';
     try {
-      currentWs.close();
+      currentWs.close(1000);
     } catch (error) {}
     if (config.debug) console.log('NEW SOCKET', authObj);
     currentWs = new Ws(config.socketPath, {

@@ -17,7 +17,7 @@ var listenFn = (_) => {};
 
 var jobs = new Map();
 export default {
-  currentWs() {
+  get currentWs() {
     return currentWs;
   },
   initThreadClient() {
@@ -44,6 +44,7 @@ export default {
   },
   async _connect(authObj) {
     if (config.debug) console.log('SnubSocket request connection...');
+    if (currentWs && currentWs.readyState() > 1) this.wsState = 'DISCONNECTED';
     if (currentWs && this.wsState !== 'DISCONNECTED') {
       this.postMessage('_snub_state', this.wsState);
       if (this.wsState === 'CONNECTED')
@@ -55,7 +56,7 @@ export default {
     if (config.debug) console.log('max attempts.', config.maxAttempts);
     this.wsState = 'CONNECTING';
     try {
-      currentWs.close();
+      currentWs.close(1000);
     } catch (error) {}
     if (config.debug) console.log('NEW SOCKET', authObj);
     currentWs = new Ws(config.socketPath, {

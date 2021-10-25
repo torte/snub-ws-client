@@ -11,7 +11,7 @@ export default function (url, opts) {
 
   $.open = function () {
     try {
-      ws.close();
+      ws.close(1000);
       ws = undefined;
     } catch (error) {}
     ws = new WebSocket(url, opts.protocols || []);
