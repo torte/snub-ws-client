@@ -125,7 +125,6 @@ export default function (config) {
   var socketId;
   scWorker.addEventListener('message', (event) => {
     var [key, value] = event.data;
-    window.wsApiEventLogs.push('snubEventMessage' + key + '::' + value[0]);
     if (key === '_snub_state') {
       socketState = value;
       config.onstatechange(value);
