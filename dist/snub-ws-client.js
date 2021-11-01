@@ -250,25 +250,22 @@
       },
       // posst a messages to the worker thread;
       postToThread(key, value) {
-        if (key === '_snubSend')
-          if (scWorker.isInline || scWorker.isElectron)
-            return scWorker.postMessage([key, value]);
-
-        if (key === '_snubSend')
-          // only used by webworkers with a means to reply inline
-          return new Promise((resolve, reject) => {
-            // if its not expecting a reply?
-            if (!value || (value.length === 3 && value[2] === true)) {
-              scWorker.postMessage([key, value]);
-              resolve();
-            } else {
-              var msgChannel = new MessageChannel();
-              msgChannel.port1.onmessage = (event) => {
-                if (key === '_snubSend') resolve(event.data);
-              };
-              scWorker.postMessage([key, value], [msgChannel.port2]);
-            }
-          });
+        if (scWorker.isInline || scWorker.isElectron)
+          return scWorker.postMessage([key, value]);
+        // only used by webworkers with a means to reply inline
+        return new Promise((resolve, reject) => {
+          // if its not expecting a reply?
+          if (!value || (value.length === 3 && value[2] === true)) {
+            scWorker.postMessage([key, value]);
+            resolve();
+          } else {
+            var msgChannel = new MessageChannel();
+            msgChannel.port1.onmessage = (event) => {
+              if (key === '_snubSend') resolve(event.data);
+            };
+            scWorker.postMessage([key, value], [msgChannel.port2]);
+          }
+        });
       },
     };
   }
