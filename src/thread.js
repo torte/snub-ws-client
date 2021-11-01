@@ -165,7 +165,7 @@ export default {
   async message(key, value) {
     key = key.replace(/^_snub_/, '_');
     if (typeof this[key] === 'function') {
-      var res = this[key](value);
+      var res = await this[key](value);
       return res;
     }
     console.error('unknown message for ' + key, this[key]);
@@ -177,6 +177,7 @@ export default {
   listen(fn) {
     listenFn = fn;
   },
+  // post message back to main thread
   postMessage(key, value) {
     var nextRaw = listenRawFn(key, value);
     var next;

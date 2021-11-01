@@ -1,18 +1,22 @@
 export default function (config) {
-  config = Object.assign({
-    debug: true,
-    threadType: 'shared',
-    worker: 'web-worker.thread.js',
-    onmessage: _ => {},
-    onconnect: _ => {},
-    onstatechange: _ => {},
-    onauthenticated: _ => {},
-    onclose: _ => {},
-    ondenyauth: _ => {},
-    onerror: _ => {}
-  }, config);
+  config = Object.assign(
+    {
+      debug: true,
+      threadType: 'shared',
+      worker: 'web-worker.thread.js',
+      onmessage: (_) => {},
+      onconnect: (_) => {},
+      onstatechange: (_) => {},
+      onauthenticated: (_) => {},
+      onclose: (_) => {},
+      ondenyauth: (_) => {},
+      onerror: (_) => {},
+    },
+    config
+  );
 
   var replyQue = new Map();
+  window.snubReplyQue = replyQue;
 
   if (config.threadType === 'shared' && typeof SharedWorker === 'undefined')
     config.threadType = 'web';
@@ -21,7 +25,13 @@ export default function (config) {
     config.threadType = 'inline';
 
   if (config.debug)
-    console.log(['Init snub-ws-client', config.threadType, String(config.worker).substr(0, 20)].join(':'));
+    console.log(
+      [
+        'Init snub-ws-client',
+        config.threadType,
+        String(config.worker).substr(0, 20),
+      ].join(':')
+    );
 
   var scWorker;
   if (config.threadType === 'web') {
@@ -41,7 +51,7 @@ export default function (config) {
     if (request.status === 200) {
       scWorker = {
         isInline: true,
-        events: []
+        events: [],
       };
       doEval(scWorker, request.responseText);
     }
@@ -50,38 +60,42 @@ export default function (config) {
   if (config.threadType === 'inline-raw' && typeof config.worker === 'string') {
     scWorker = {
       isInline: true,
-      events: []
+      events: [],
     };
     doEval(scWorker, config.worker);
   }
 
-  if (config.threadType === 'inline-fn' && typeof config.worker === 'function') {
+  if (
+    config.threadType === 'inline-fn' &&
+    typeof config.worker === 'function'
+  ) {
     scWorker = {
       isInline: true,
-      events: []
+      events: [],
     };
     config.worker(scWorker);
   }
 
   if (config.threadType === 'electron') {
     if (typeof config.worker !== 'object')
-      throw Error('Electron worker requires ipcRenderer passed to the config.worker');
+      throw Error(
+        'Electron worker requires ipcRenderer passed to the config.worker'
+      );
     scWorker = {
       isElectron: true,
       events: [],
-      addEventListener (event, fn) {
+      addEventListener(event, fn) {
         this.events.push({
           event,
-          fn
+          fn,
         });
       },
-      incPostMessage (msg) {
-        this.events.forEach(e => {
-          if (e.event === 'message')
-            e.fn({ data: msg });
+      incPostMessage(msg) {
+        this.events.forEach((e) => {
+          if (e.event === 'message') e.fn({ data: msg });
         });
       },
-      postMessage (msg) {
+      postMessage(msg) {
         return new Promise((resolve, reject) => {
           var [key, value] = msg;
           var awaitReply = false;
@@ -89,18 +103,17 @@ export default function (config) {
             awaitReply = __genReplyId(key);
             replyQue.set(awaitReply, {
               ts: Date.now(),
-              fn: resolve
+              fn: resolve,
             });
           } else {
             resolve();
           }
           config.worker.send('_snub_ipc_message', [key, value, awaitReply]);
         });
-      }
+      },
     };
 
-    if (config.debug)
-      console.log('Init snub-ws-client: ', config.threadType);
+    if (config.debug) console.log('Init snub-ws-client: ', config.threadType);
 
     config.worker.on('_snub_ipc_message', (event, payload) => {
       scWorker.incPostMessage(payload);
@@ -110,8 +123,9 @@ export default function (config) {
   // eslint-disable-next-line
   var socketState = 'DISCONNECTED';
   var socketId;
-  scWorker.addEventListener('message', event => {
+  scWorker.addEventListener('message', (event) => {
     var [key, value] = event.data;
+    window.wsApiEventLogs.push('snubEventMessage' + key + '::' + value[0]);
     if (key === '_snub_state') {
       socketState = value;
       config.onstatechange(value);
@@ -125,8 +139,7 @@ export default function (config) {
       }
     }
 
-    if (key === '_snub_message')
-      config.onmessage(value);
+    if (key === '_snub_message') config.onmessage(value);
 
     if (key === '_snub_acceptauth') {
       socketId = value;
@@ -134,127 +147,134 @@ export default function (config) {
       config.onconnect();
     }
 
-    if (key === '_snub_denyauth')
-      config.ondenyauth();
+    if (key === '_snub_denyauth') config.ondenyauth();
 
-    if (key === '_snub_closed')
-      config.onclose(value);
+    if (key === '_snub_closed') config.onclose(value);
   });
 
-  if (scWorker.start)
-    scWorker.start();
+  if (scWorker.start) scWorker.start();
 
   // tell the worker about the config
   scWorker.postMessage(['_snub_config', JSON.parse(JSON.stringify(config))]);
 
   return {
-    get socketPath () {
+    get socketPath() {
       return config.socketPath;
     },
-    set socketPath (nv) {
+    set socketPath(nv) {
       if (config.socketPath === nv) return;
       config.socketPath = nv;
-      scWorker.postMessage(['_snub_config', JSON.parse(JSON.stringify(config))]);
+      scWorker.postMessage([
+        '_snub_config',
+        JSON.parse(JSON.stringify(config)),
+      ]);
     },
-    get state () {
+    get state() {
       return socketState;
     },
-    get socketId () {
+    get socketId() {
       return socketId;
     },
-    set onmessage (nv) {
+    set onmessage(nv) {
       config.onmessage = nv;
     },
-    get onmessage () {
+    get onmessage() {
       return config.onmessage;
     },
-    set onconnect (nv) {
+    set onconnect(nv) {
       config.onconnect = nv;
     },
-    get onconnect () {
+    get onconnect() {
       return config.onconnect;
     },
-    set onstatechange (nv) {
+    set onstatechange(nv) {
       config.onstatechange = nv;
     },
-    get onstatechange () {
+    get onstatechange() {
       return config.onstatechange;
     },
-    set onauthenticated (nv) {
+    set onauthenticated(nv) {
       config.onauthenticated = nv;
     },
-    get onauthenticated () {
+    get onauthenticated() {
       return config.onauthenticated;
     },
-    set onclose (nv) {
+    set onclose(nv) {
       config.onclose = nv;
     },
-    get onclose () {
+    get onclose() {
       return config.onclose;
     },
-    set ondenyauth (nv) {
+    set ondenyauth(nv) {
       config.ondenyauth = nv;
     },
-    get ondenyauth () {
+    get ondenyauth() {
       return config.ondenyauth;
     },
-    set onerror (nv) {
+    set onerror(nv) {
       config.onerror = nv;
     },
-    get onerror () {
+    get onerror() {
       return config.onerror;
     },
-    connect (authObj) {
+    connect(authObj) {
       this.postToThread('_snub_connect', authObj);
     },
-    close (code, reason) {
+    close(code, reason) {
       this.postToThread('_snub_close', [code, reason]);
     },
-    open () {
+    open() {
       this.postToThread('_snub_open');
     },
-    async send (key, value, noReply) {
+    async send(key, value, noReply) {
       var res = await this.postToThread('_snubSend', [key, value, noReply]);
       return res;
     },
-    async createJob (name, fn) {
+    async createJob(name, fn) {
       fn = fn.toString();
       var res = await this.postToThread('_snubCreateJob', { name, fn });
       var self = this;
       if (res === name)
         return async function () {
-          var ran = await self.postToThread('_snubRunJob', { name, args: Array.from(arguments) });
+          var ran = await self.postToThread('_snubRunJob', {
+            name,
+            args: Array.from(arguments),
+          });
           return ran;
         };
     },
-    postToThread (key, value) {
-      if (scWorker.isInline || scWorker.isElectron)
-        return scWorker.postMessage([key, value]);
+    // posst a messages to the worker thread;
+    postToThread(key, value) {
+      if (key === '_snubSend')
+        if (scWorker.isInline || scWorker.isElectron)
+          return scWorker.postMessage([key, value]);
 
-      // only used by webworkers with a means to reply inline
-      return new Promise((resolve, reject) => {
-        if (!value || (value.length === 3 && value[2] === true)) {
-          scWorker.postMessage([key, value]);
-          resolve();
-        } else {
-          var msgChannel = new MessageChannel();
-          msgChannel.port1.onmessage = event => {
-            resolve(event.data);
-          };
-          scWorker.postMessage([key, value], [msgChannel.port2]);
-        }
-      });
-    }
+      if (key === '_snubSend')
+        // only used by webworkers with a means to reply inline
+        return new Promise((resolve, reject) => {
+          // if its not expecting a reply?
+          if (!value || (value.length === 3 && value[2] === true)) {
+            scWorker.postMessage([key, value]);
+            resolve();
+          } else {
+            var msgChannel = new MessageChannel();
+            msgChannel.port1.onmessage = (event) => {
+              if (key === '_snubSend') resolve(event.data);
+            };
+            scWorker.postMessage([key, value], [msgChannel.port2]);
+          }
+        });
+    },
   };
 }
 
-function doEval (self, _worker_file) {
+function doEval(self, _worker_file) {
   (function () {
     // eslint-disable-next-line
     eval(_worker_file);
-  }).call(window);
+  }.call(window));
 }
-function __genReplyId (prefix) {
+function __genReplyId(prefix) {
   var firstPart = (Math.random() * 46656) | 0;
   var secondPart = (Math.random() * 46656) | 0;
   firstPart = ('000' + firstPart.toString(36)).slice(-3);
