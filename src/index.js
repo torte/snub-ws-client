@@ -91,8 +91,7 @@ export default function (config) {
       if (socketState !== oldState && socketState === 'CONNECTED')
         while (preConnectQue.length > 0) {
           (async (queItem) => {
-            var res = await this.send(...cs.args);
-            queItem.fn(res);
+            queItem.fn();
           })(preConnectQue.shift());
         }
     }
@@ -197,8 +196,9 @@ export default function (config) {
       if (socketState !== 'CONNECTED') {
         return new Promise((resolve) => {
           preConnectQue.push({
-            args: [key, value, noReply],
-            fn: resolve,
+            fn: async (d) => {
+              resolve(await this.send(key, value, noReply));
+            },
           });
         });
       }
