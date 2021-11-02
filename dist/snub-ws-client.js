@@ -21,8 +21,9 @@
       config
     );
 
-    var replyQue = new Map();
-    window.snubReplyQue = replyQue;
+    var mainThreadReplyQue = new Map();
+    var preConnectQue = [];
+    window.snubmainThreadReplyQue = mainThreadReplyQue;
 
     if (config.threadType === 'shared' && typeof SharedWorker === 'undefined')
       config.threadType = 'web';
@@ -82,64 +83,30 @@
       config.worker(scWorker);
     }
 
-    if (config.threadType === 'electron') {
-      if (typeof config.worker !== 'object')
-        throw Error(
-          'Electron worker requires ipcRenderer passed to the config.worker'
-        );
-      scWorker = {
-        isElectron: true,
-        events: [],
-        addEventListener(event, fn) {
-          this.events.push({
-            event,
-            fn,
-          });
-        },
-        incPostMessage(msg) {
-          this.events.forEach((e) => {
-            if (e.event === 'message') e.fn({ data: msg });
-          });
-        },
-        postMessage(msg) {
-          return new Promise((resolve, reject) => {
-            var [key, value] = msg;
-            var awaitReply = false;
-            if (value.length === 3 && !value[2]) {
-              awaitReply = __genReplyId(key);
-              replyQue.set(awaitReply, {
-                ts: Date.now(),
-                fn: resolve,
-              });
-            } else {
-              resolve();
-            }
-            config.worker.send('_snub_ipc_message', [key, value, awaitReply]);
-          });
-        },
-      };
-
-      if (config.debug) console.log('Init snub-ws-client: ', config.threadType);
-
-      config.worker.on('_snub_ipc_message', (event, payload) => {
-        scWorker.incPostMessage(payload);
-      });
-    }
-
     // eslint-disable-next-line
     var socketState = 'DISCONNECTED';
     var socketId;
+    // handle msg from worker thread
     scWorker.addEventListener('message', (event) => {
       var [key, value] = event.data;
       if (key === '_snub_state') {
+        var oldState = socketState;
         socketState = value;
         config.onstatechange(value);
+
+        if (socketState !== oldState && socketState === 'CONNECTED')
+          while (preConnectQue.length > 0) {
+            (async (queItem) => {
+              var res = await this.send(...cs.args);
+              queItem.fn(res);
+            })(preConnectQue.shift());
+          }
       }
       if (key === '_snub_awaited_reply') {
         var [awaitReplyKey, ival] = value;
-        var queItem = replyQue.get(awaitReplyKey);
+        var queItem = mainThreadReplyQue.get(awaitReplyKey);
         if (queItem && queItem.fn) {
-          replyQue.delete(awaitReplyKey);
+          mainThreadReplyQue.delete(awaitReplyKey);
           return queItem.fn(ival);
         }
       }
@@ -180,6 +147,7 @@
       get socketId() {
         return socketId;
       },
+      // on message from the worker thread
       set onmessage(nv) {
         config.onmessage = nv;
       },
@@ -223,48 +191,54 @@
         return config.onerror;
       },
       connect(authObj) {
-        this.postToThread('_snub_connect', authObj);
+        this.postToWorkerThread('_snub_connect', authObj);
       },
       close(code, reason) {
-        this.postToThread('_snub_close', [code, reason]);
+        this.postToWorkerThread('_snub_close', [code, reason]);
       },
       open() {
-        this.postToThread('_snub_open');
+        this.postToWorkerThread('_snub_open');
       },
       async send(key, value, noReply) {
-        var res = await this.postToThread('_snubSend', [key, value, noReply]);
+        if (socketState !== 'CONNECTED') {
+          return new Promise((resolve) => {
+            preConnectQue.push({
+              args: [key, value, noReply],
+              fn: resolve,
+            });
+          });
+        }
+        var res = await this.postToWorkerThread('_snubSend', [
+          key,
+          value,
+          noReply,
+        ]);
         return res;
       },
       async createJob(name, fn) {
         fn = fn.toString();
-        var res = await this.postToThread('_snubCreateJob', { name, fn });
+        var res = await this.postToWorkerThread('_snubCreateJob', { name, fn });
         var self = this;
         if (res === name)
           return async function () {
-            var ran = await self.postToThread('_snubRunJob', {
+            var ran = await self.postToWorkerThread('_snubRunJob', {
               name,
               args: Array.from(arguments),
             });
             return ran;
           };
       },
-      // posst a messages to the worker thread;
-      postToThread(key, value) {
-        if (scWorker.isInline || scWorker.isElectron)
-          return scWorker.postMessage([key, value]);
-        // only used by webworkers with a means to reply inline
-        return new Promise((resolve, reject) => {
-          // if its not expecting a reply?
-          if (!value || (value.length === 3 && value[2] === true)) {
-            scWorker.postMessage([key, value]);
-            resolve();
-          } else {
-            var msgChannel = new MessageChannel();
-            msgChannel.port1.onmessage = (event) => {
-              if (key === '_snubSend') resolve(event.data);
-            };
-            scWorker.postMessage([key, value], [msgChannel.port2]);
-          }
+      // post a messages to the worker thread;
+      postToWorkerThread(key, value) {
+        if (key !== '_snubSend') return scWorker.postMessage([key, value]);
+        var [ikey, ivalue, noReply] = value;
+        if (noReply === true) return scWorker.postMessage([key, value]);
+        noReply = __genReplyId(ikey, socketId);
+        scWorker.postMessage([key, value, noReply]);
+        return new Promise((resolve) => {
+          mainThreadReplyQue.set(noReply, {
+            fn: resolve,
+          });
         });
       },
     };
@@ -276,12 +250,10 @@
       eval(_worker_file);
     }.call(window));
   }
-  function __genReplyId(prefix) {
-    var firstPart = (Math.random() * 46656) | 0;
-    var secondPart = (Math.random() * 46656) | 0;
-    firstPart = ('000' + firstPart.toString(36)).slice(-3);
-    secondPart = ('000' + secondPart.toString(36)).slice(-3);
-    return '_reply:' + prefix + ':' + firstPart + secondPart;
+  var replyIdCount = 0;
+  function __genReplyId(prefix, sockid = 'init') {
+    replyIdCount++;
+    return `_reply:${prefix}:${sockid}:${replyIdCount}`;
   }
 
   return index;

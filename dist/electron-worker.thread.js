@@ -108,9 +108,9 @@ var thread = {
   initThreadClient() {
     console.log('Thread Client INIT');
     // new clients will need to know about the existing connection.
-    this.postMessage('_snub_state', this.wsState);
+    this.postMessageToMainThread('_snub_state', this.wsState);
     if (this.wsState === 'CONNECTED')
-      this.postMessage('_snub_acceptauth', currentSocketId);
+      this.postMessageToMainThread('_snub_acceptauth', currentSocketId);
   },
   setPostMessage(fn) {
     threadPostMessage = fn;
@@ -121,7 +121,7 @@ var thread = {
   set wsState(nv) {
     if (nv !== currentWs) {
       currentWsState = nv;
-      this.postMessage('_snub_state', nv);
+      this.postMessageToMainThread('_snub_state', nv);
     }
   },
   async _config(configObj) {
@@ -131,9 +131,9 @@ var thread = {
     if (config.debug) console.log('SnubSocket request connection...');
     if (currentWs && currentWs.readyState() > 1) this.wsState = 'DISCONNECTED';
     if (currentWs && this.wsState !== 'DISCONNECTED') {
-      this.postMessage('_snub_state', this.wsState);
+      this.postMessageToMainThread('_snub_state', this.wsState);
       if (this.wsState === 'CONNECTED')
-        this.postMessage('_snub_acceptauth', currentSocketId);
+        this.postMessageToMainThread('_snub_acceptauth', currentSocketId);
       return;
     }
     if (config.debug) console.log('SnubSocket Connecting...');
@@ -156,10 +156,11 @@ var thread = {
       onmessage: (e) => {
         try {
           var [key, value] = JSON.parse(e.data);
+          // handle the auth check
           if (key === '_acceptAuth') {
             this.wsState = 'CONNECTED';
             currentSocketId = value;
-            this.postMessage('_snub_acceptauth', currentSocketId);
+            this.postMessageToMainThread('_snub_acceptauth', currentSocketId);
 
             while (connectQue.length > 0) {
               (async (queItem) => {
@@ -171,16 +172,21 @@ var thread = {
           }
 
           if (key.startsWith('_reply:')) {
+            console.log('got reply', key);
+            // _snub_awaited_reply
             var queItem = replyQue.get(key);
             if (queItem && queItem.fn) {
               replyQue.delete(key);
-              return queItem.fn(value);
+              return this.postMessageToMainThread('_snub_awaited_reply', [
+                key,
+                value,
+              ]);
             }
           }
 
-          this.postMessage('_snub_message', [key, value]);
+          this.postMessageToMainThread('_snub_message', [key, value]);
         } catch (error) {
-          this.postMessage('_snub_message', e.data);
+          this.postMessageToMainThread('_snub_message', e.data);
         }
       },
       onreconnect: (e) => console.log('Reconnecting...', e),
@@ -188,8 +194,9 @@ var thread = {
       onclose: (e) => {
         this.wsState = 'DISCONNECTED';
         if (config.debug) console.log('SnubSocket closed...', e.code, e.reason);
-        if (e.reason === 'AUTH_FAIL') this.postMessage('_snub_denyauth');
-        return this.postMessage('_snub_closed', {
+        if (e.reason === 'AUTH_FAIL')
+          this.postMessageToMainThread('_snub_denyauth');
+        return this.postMessageToMainThread('_snub_closed', {
           reason: e.reason,
           code: e.code,
         });
@@ -206,7 +213,7 @@ var thread = {
     if (!currentWs) return;
     currentWs.open();
   },
-  _snubSend(snubSendObj) {
+  _snubSend(snubSendObj, noReply) {
     if (!currentWs) return;
     if (currentWs.readyState() > 1 && this.wsState !== 'DISCONNECTED') {
       currentWs.reconnect();
@@ -222,8 +229,9 @@ var thread = {
           fn: resolve,
         });
       } else {
-        var [key, value, noReply] = snubSendObj;
-        var replyId = noReply === true ? undefined : this.__genReplyId(key);
+        var [key, value] = snubSendObj;
+        console.log('build reply worker thread', key, value, noReply);
+        var replyId = noReply === true ? undefined : noReply;
         // put a reply job on the que
         if (replyId)
           replyQue.set(replyId, {
@@ -247,10 +255,10 @@ var thread = {
     var res = await jobs.get(name)(...args);
     return res;
   },
-  async message(key, value) {
+  async message(key, value, noReply) {
     key = key.replace(/^_snub_/, '_');
     if (typeof this[key] === 'function') {
-      var res = await this[key](value);
+      var res = await this[key](value, noReply);
       return res;
     }
     console.error('unknown message for ' + key, this[key]);
@@ -263,33 +271,34 @@ var thread = {
     listenFn = fn;
   },
   // post message back to main thread
-  postMessage(key, value) {
+  postMessageToMainThread(key, value) {
+    console.log('post to main thread', key, value);
     var nextRaw = listenRawFn(key, value);
     var next;
     if (key === '_snub_message') next = listenFn(...value);
     if (nextRaw !== false && next !== false) threadPostMessage([key, value]);
   },
-  __genReplyId(prefix) {
-    var firstPart = (Math.random() * 46656) | 0;
-    var secondPart = (Math.random() * 46656) | 0;
-    firstPart = ('000' + firstPart.toString(36)).slice(-3);
-    secondPart = ('000' + secondPart.toString(36)).slice(-3);
-    return (
-      '_reply:' +
-      prefix +
-      ':' +
-      hashCode(currentSocketId) +
-      '-' +
-      firstPart +
-      secondPart
-    );
-  },
+  // __genReplyId(prefix) {
+  //   var firstPart = (Math.random() * 46656) | 0;
+  //   var secondPart = (Math.random() * 46656) | 0;
+  //   firstPart = ('000' + firstPart.toString(36)).slice(-3);
+  //   secondPart = ('000' + secondPart.toString(36)).slice(-3);
+  //   return (
+  //     '_reply:' +
+  //     prefix +
+  //     ':' +
+  //     hashCode(currentSocketId) +
+  //     '-' +
+  //     firstPart +
+  //     secondPart
+  //   );
+  // },
 };
 
-function hashCode(s) {
-  for (var h = 0, i = 0; i < s.length; h &= h) h = 31 * h + s.charCodeAt(i++);
-  return Math.abs(h).toString(36);
-}
+// function hashCode(s) {
+//   for (var h = 0, i = 0; i < s.length; h &= h) h = 31 * h + s.charCodeAt(i++);
+//   return Math.abs(h).toString(36);
+// }
 
 const WebSocket$1 = require('ws');
 global.WebSocket = WebSocket$1;
