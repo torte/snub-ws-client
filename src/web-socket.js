@@ -8,13 +8,13 @@ export default function (url, opts) {
   var timer = 1;
   var $ = {};
   var max = opts.maxAttempts || Infinity;
-
   $.open = function () {
     try {
       ws.close(1000);
       ws = undefined;
     } catch (error) {}
     ws = new WebSocket(url, opts.protocols || []);
+    $.ws = ws;
 
     ws.onmessage = opts.onmessage || noop;
 
@@ -76,7 +76,6 @@ export default function (url, opts) {
     ws.close(x || 1e3, y);
     ws.onmessage = noop;
     ws.onopen = noop;
-    ws.onclose = noop;
     ws.onerror = noop;
   };
 

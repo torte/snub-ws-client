@@ -8,13 +8,13 @@ function Ws (url, opts) {
   var timer = 1;
   var $ = {};
   var max = opts.maxAttempts || Infinity;
-
   $.open = function () {
     try {
       ws.close(1000);
       ws = undefined;
     } catch (error) {}
     ws = new WebSocket(url, opts.protocols || []);
+    $.ws = ws;
 
     ws.onmessage = opts.onmessage || noop;
 
@@ -73,10 +73,10 @@ function Ws (url, opts) {
 
   $.close = function (x, y) {
     timer = clearTimeout(timer);
+    console.log('Attempt close?ok');
     ws.close(x || 1e3, y);
     ws.onmessage = noop;
     ws.onopen = noop;
-    ws.onclose = noop;
     ws.onerror = noop;
   };
 
@@ -190,6 +190,7 @@ var thread = {
       onreconnect: (e) => console.log('Reconnecting...', e),
       onmaximum: (e) => console.log('Stop Attempting!', e),
       onclose: (e) => {
+        console.log('!!!closed');
         this.wsState = 'DISCONNECTED';
         if (config.debug) console.log('SnubSocket closed...', e.code, e.reason);
         if (e.reason === 'AUTH_FAIL')

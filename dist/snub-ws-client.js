@@ -97,7 +97,6 @@
         if (socketState !== oldState && socketState === 'CONNECTED')
           while (preConnectQue.length > 0) {
             (async (queItem) => {
-              console.log('!que item init');
               queItem.fn();
             })(preConnectQue.shift());
           }
@@ -205,7 +204,6 @@
             preConnectQue.push({
               fn: async (d) => {
                 resolve(await this.send(key, value, noReply));
-                console.log('!que item ran');
               },
             });
           });
