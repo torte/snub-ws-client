@@ -73,7 +73,6 @@ function Ws (url, opts) {
 
   $.close = function (x, y) {
     timer = clearTimeout(timer);
-    console.log('Attempt close?ok');
     ws.close(x || 1e3, y);
     ws.onmessage = noop;
     ws.onopen = noop;
@@ -190,7 +189,6 @@ var thread = {
       onreconnect: (e) => console.log('Reconnecting...', e),
       onmaximum: (e) => console.log('Stop Attempting!', e),
       onclose: (e) => {
-        console.log('!!!closed');
         this.wsState = 'DISCONNECTED';
         if (config.debug) console.log('SnubSocket closed...', e.code, e.reason);
         if (e.reason === 'AUTH_FAIL')
