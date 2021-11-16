@@ -14,9 +14,15 @@ var connectQue = [];
 var threadPostMessage = (_) => {};
 var listenRawFn = (_) => {};
 var listenFn = (_) => {};
+var pingCheck = (_) => {};
 
 var jobs = new Map();
 export default {
+  selfCheck() {
+    if (!currentWs || !currentWsState) return;
+    if (currentWsState === 'CONNECTED' && currentWs.readyState() !== 1)
+      currentWs.reconnect();
+  },
   get currentWs() {
     return currentWs;
   },
@@ -34,10 +40,9 @@ export default {
     return currentWsState;
   },
   set wsState(nv) {
-    if (nv !== currentWs) {
-      currentWsState = nv;
-      this.postMessageToMainThread('_snub_state', nv);
-    }
+    if (nv === currentWsState) return;
+    currentWsState = nv;
+    this.postMessageToMainThread('_snub_state', nv);
   },
   async _config(configObj) {
     config = Object.assign(config, configObj);
@@ -51,6 +56,7 @@ export default {
         this.postMessageToMainThread('_snub_acceptauth', currentSocketId);
       return;
     }
+
     if (config.debug) console.log('SnubSocket Connecting...');
 
     if (config.debug) console.log('max attempts.', config.maxAttempts);
@@ -59,6 +65,10 @@ export default {
       currentWs.close(1000);
     } catch (error) {}
     if (config.debug) console.log('NEW SOCKET', authObj);
+    try {
+      console.log(this.wsState, currentWs.readyState());
+    } catch (error) {}
+    var self = this;
     currentWs = new Ws(config.socketPath, {
       autoConnect: true,
       timeout: config.timeout,
@@ -66,14 +76,18 @@ export default {
       onopen: (e) => {
         if (config.debug) console.log('SnubSocket Connected');
         this.wsState = 'WAITING_AUTH';
+        // currentWs.authCache = JSON.stringify(currentWs.authObj);
         currentWs.json(['_auth', authObj]);
       },
       onmessage: (e) => {
         try {
           var [key, value] = JSON.parse(e.data);
           // handle the auth check
+          if (key === '_pong') return pingCheck();
           if (key === '_acceptAuth') {
             this.wsState = 'CONNECTED';
+            this.chacheAuthObj = authObj;
+            this.authedSocket = true;
             currentSocketId = value;
             this.postMessageToMainThread('_snub_acceptauth', currentSocketId);
 
@@ -90,10 +104,7 @@ export default {
             var queItem = replyQue.get(key);
             if (queItem && queItem.fn) {
               replyQue.delete(key);
-              return this.postMessageToMainThread('_snub_awaited_reply', [
-                key,
-                value,
-              ]);
+              return this.replyMessageToMainThread(key, value);
             }
           }
 
@@ -105,14 +116,17 @@ export default {
       onreconnect: (e) => console.log('Reconnecting...', e),
       onmaximum: (e) => console.log('Stop Attempting!', e),
       onclose: (e) => {
+        if (e.target !== currentWs.ws) return;
         this.wsState = 'DISCONNECTED';
         if (config.debug) console.log('SnubSocket closed...', e.code, e.reason);
         if (e.reason === 'AUTH_FAIL')
           this.postMessageToMainThread('_snub_denyauth');
-        return this.postMessageToMainThread('_snub_closed', {
-          reason: e.reason,
-          code: e.code,
-        });
+        if (this.authedSocket === true)
+          this.postMessageToMainThread('_snub_closed', {
+            reason: e.reason,
+            code: e.code,
+          });
+        this.authedSocket = false;
       },
       onerror: (e) => console.warn('Error:', e),
     });
@@ -155,6 +169,27 @@ export default {
       }
     });
   },
+  async _snubSocketCheck(obj, reply) {
+    var checkObj = {
+      ws: currentWs.readyState(),
+      state: this.wsState,
+    };
+    this.replyMessageToMainThread(reply, checkObj);
+    if (obj === 'dc') currentWs.close(3333);
+    if (obj === 'rc') currentWs.reconnect();
+    if (obj || !currentWs || !currentWsState) return;
+    if (currentWsState === 'CONNECTED' && currentWs.readyState() !== 1)
+      currentWs.reconnect();
+  },
+  async _pingCheck(obj, reply) {
+    currentWs.json(['_ping']);
+    pingCheck = (_) => {
+      this.replyMessageToMainThread(reply, true);
+    };
+  },
+  async _snubWorkerCheck(obj, reply) {
+    this.replyMessageToMainThread(reply, true);
+  },
   async _snubCreateJob(obj) {
     var { name, fn } = obj;
     // eslint-disable-next-line
@@ -188,5 +223,8 @@ export default {
     var next;
     if (key === '_snub_message') next = listenFn(...value);
     if (nextRaw !== false && next !== false) threadPostMessage([key, value]);
+  },
+  replyMessageToMainThread(key, value) {
+    return this.postMessageToMainThread('_snub_awaited_reply', [key, value]);
   },
 };

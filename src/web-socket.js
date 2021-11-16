@@ -1,12 +1,15 @@
-function noop() {}
+function noop() {
+  console.log('noop');
+}
 
 export default function (url, opts) {
   opts = opts || {};
 
   var ws;
   var num = 0;
-  var timer = 1;
-  var $ = {};
+  var $ = {
+    hash: Math.random(),
+  };
   var max = opts.maxAttempts || Infinity;
   $.open = function () {
     try {
@@ -18,18 +21,14 @@ export default function (url, opts) {
 
     ws.onmessage = opts.onmessage || noop;
 
-    var intTrack = setInterval((_) => {
-      console.log(ws, ws.readyState);
-    }, 5000);
-
     ws.onopen = function (e) {
-      clearInterval(intTrack);
+      console.log('ws-open');
       (opts.onopen || noop)(e);
       num = 0;
     };
 
     ws.onclose = function (e) {
-      clearInterval(intTrack);
+      if (e.code === 1005) return;
       // https://github.com/Luka967/websocket-close-codes
       // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
       e.code === 1000 || e.code === 1001 || $.reconnect(e);
@@ -38,7 +37,6 @@ export default function (url, opts) {
     };
 
     ws.onerror = function (e) {
-      clearInterval(intTrack);
       e && e.code === 'ECONNREFUSED'
         ? $.reconnect(e)
         : (opts.onerror || noop)(e);
@@ -72,7 +70,6 @@ export default function (url, opts) {
   };
 
   $.close = function (x, y) {
-    timer = clearTimeout(timer);
     ws.close(x || 1e3, y);
     ws.onmessage = noop;
     ws.onopen = noop;

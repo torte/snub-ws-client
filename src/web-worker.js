@@ -1,6 +1,11 @@
 import thread from './thread.js';
 console.log('Init Snub Worker Thread', self);
 self.thread = thread;
+
+self.checkInterval = setInterval((_) => {
+  if (thread && thread.selfCheck) thread.selfCheck();
+}, 3000);
+
 if (self.onconnect === null) {
   // Shared Worker
   var clients = [];

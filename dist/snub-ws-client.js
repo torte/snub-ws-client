@@ -92,6 +92,7 @@
       if (key === '_snub_state') {
         var oldState = socketState;
         socketState = value;
+        if (oldState === socketState) return;
         config.onstatechange(value);
 
         if (socketState !== oldState && socketState === 'CONNECTED')
@@ -215,6 +216,33 @@
         ]);
         return res;
       },
+      async socketCheck(forceReconnect) {
+        var res = await this.postToWorkerThread(
+          '_snubSocketCheck',
+          forceReconnect
+        );
+        return res;
+      },
+      async workerCheck() {
+        var res = false;
+        (async (_) => {
+          res = await this.postToWorkerThread('_snubWorkerCheck');
+        })();
+        await ((_) => {
+          return new Promise((resolve) => setTimeout(resolve, 200));
+        })();
+        return res;
+      },
+      async pingCheck() {
+        var res = false;
+        (async (_) => {
+          res = await this.postToWorkerThread('_snubWorkerCheck');
+        })();
+        await ((_) => {
+          return new Promise((resolve) => setTimeout(resolve, 2000));
+        })();
+        return res;
+      },
       async createJob(name, fn) {
         fn = fn.toString();
         var res = await this.postToWorkerThread('_snubCreateJob', { name, fn });
@@ -230,6 +258,22 @@
       },
       // post a messages to the worker thread;
       postToWorkerThread(key, value) {
+        if (
+          [
+            '_snubSocketCheck',
+            '_snubCreateJob',
+            '_snubRunJob',
+            '_snubWorkerCheck',
+          ].includes(key)
+        ) {
+          var noReply = __genReplyId(key, socketId);
+          scWorker.postMessage([key, value, noReply]);
+          return new Promise((resolve) => {
+            mainThreadReplyQue.set(noReply, {
+              fn: resolve,
+            });
+          });
+        }
         if (key !== '_snubSend') return scWorker.postMessage([key, value]);
         var [ikey, ivalue, noReply] = value;
         if (noReply === true) return scWorker.postMessage([key, value]);
