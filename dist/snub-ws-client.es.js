@@ -1,4 +1,4 @@
-export default function (config) {
+function index (config) {
   config = Object.assign(
     {
       debug: true,
@@ -298,3 +298,5 @@ function __genReplyId(prefix, sockid = 'init') {
   replyIdCount++;
   return `_reply:${prefix}:${sockid}:${replyIdCount}`;
 }
+
+export default index;

@@ -17,10 +17,15 @@
         onclose: (_) => {},
         ondenyauth: (_) => {},
         onerror: (_) => {},
+        workerOptions: {
+          name: 'Snub-Ws-Worker',
+          type: 'classic', // use module for web modules
+        },
       },
       config
     );
 
+    console.log('SNUB-WS-CONFIG', config);
     var mainThreadReplyQue = new Map();
     var preConnectQue = [];
     window.snubmainThreadReplyQue = mainThreadReplyQue;
@@ -42,11 +47,11 @@
 
     var scWorker;
     if (config.threadType === 'web') {
-      scWorker = new Worker(config.worker);
+      scWorker = new Worker(config.worker, config.workerOptions);
     }
 
     if (config.threadType === 'shared') {
-      var scWorkerShared = new SharedWorker(config.worker, 'SnubSharedWorker');
+      var scWorkerShared = new SharedWorker(config.worker, config.workerOptions);
       scWorker = scWorkerShared.port;
     }
 
