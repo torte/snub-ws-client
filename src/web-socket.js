@@ -45,7 +45,7 @@ export default function (url, opts) {
 
   $.reconnect = function (e) {
     if (num++ < max) {
-      timer = setTimeout(
+      setTimeout(
         function () {
           (opts.onreconnect || noop)(e);
           $.open();
