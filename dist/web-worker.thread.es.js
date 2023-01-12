@@ -163,6 +163,7 @@ var thread = {
         try {
           var [key, value] = JSON.parse(e.data);
           // handle the auth check
+          if (key === '_ping') return currentWs.json(['_pong']);
           if (key === '_pong') return pingCheck();
           if (key === '_acceptAuth') {
             this.wsState = 'CONNECTED';
