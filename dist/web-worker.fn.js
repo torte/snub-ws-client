@@ -1,3 +1,4 @@
+export default function(self) {
 function noop() {
   console.log('noop');
 }
@@ -387,4 +388,4 @@ thread.initThreadClient();
 // self.listenRaw((key, value) => {
 //   console.log('%RAW%', key, value);
 // });
- }
+}

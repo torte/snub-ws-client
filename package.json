@@ -1,11 +1,11 @@
 {
   "name": "snub-ws-client",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "Websocket client for snub-ws",
   "main": "dist/snub-ws-client.js",
   "scripts": {
     "sample": "concurrently \"npm run redis\" \"sleep 2 && node sample/server.js\"  \"watch 'npm run dobuild' src\" --kill-others",
-    "dobuild": "rollup -c rollup.config.js; cp dist/web-worker.thread.js dist/web-worker.fn.js; echo ' }' >> dist/web-worker.fn.js; sed -i '' '1s;^;export default function(self) { ;' dist/web-worker.fn.js;",
+    "dobuild": "rollup -c rollup.config.js; cp dist/web-worker.thread.js dist/web-worker.fn.js; echo \"$(echo 'export default function(self) {'; cat dist/web-worker.fn.js; echo -n '}')\" > dist/web-worker.fn.js;",
     "redis": "docker run --rm --name redis-untap -p 6379:6379 redis:4.0-alpine",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "watch 'npm run dobuild' src"
